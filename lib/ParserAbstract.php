@@ -101,7 +101,9 @@ abstract class ParserAbstract
         $this->scope = $context->scope;
         $this->compiler->begin($this->scope);
         $this->lexer->begin($this->scope, $tokens);
+        
         $result = $this->doParse();
+        
         $this->startAttributeStack = [];
         $this->endAttributeStack = [];
         $this->semStack = [];
@@ -109,6 +111,8 @@ abstract class ParserAbstract
         return $result;
     }
 
+    protected $trace = true;
+    
     protected function doParse() {
         // We start off with no lookahead-token
         $symbol = self::SYMBOL_NONE;
@@ -130,7 +134,8 @@ abstract class ParserAbstract
         $stackPos = 0;
         $this->errorState = 0;
         for (;;) {
-            //$this->traceNewState($state, $symbol);
+            if($this->trace) $this->traceNewState($state, $symbol);
+            
             if ($this->actionBase[$state] === 0) {
                 $rule = $this->actionDefault[$state];
             } else {
@@ -155,7 +160,7 @@ abstract class ParserAbstract
                     $this->startAttributeStack[$stackPos+1] = $startAttributes;
                     $this->endAttributeStack[$stackPos+1] = $endAttributes;
                     $this->lookaheadStartAttributes = $startAttributes;
-                    //$this->traceRead($symbol);
+                    if($this->trace) $this->traceRead($symbol);
                 }
                 $idx = $this->actionBase[$state] + $symbol;
                 if ((($idx >= 0 && $idx < $this->actionTableSize && $this->actionCheck[$idx] === $symbol)
@@ -172,7 +177,7 @@ abstract class ParserAbstract
                      */
                     if ($action > 0) {
                         /* shift */
-                        //$this->traceShift($symbol);
+                        if($this->trace) $this->traceShift($symbol);
                         ++$stackPos;
                         $stateStack[$stackPos] = $state = $action;
                         $this->semStack[$stackPos] = $tokenValue;
@@ -198,11 +203,11 @@ abstract class ParserAbstract
             for (;;) {
                 if ($rule === 0) {
                     /* accept */
-                    //$this->traceAccept();
+                    if($this->trace) $this->traceAccept();
                     return $this->semValue;
                 } elseif ($rule !== $this->unexpectedTokenRule) {
                     /* reduce */
-                    //$this->traceReduce($rule);
+                    if($this->trace) $this->traceReduce($rule);
                     try {
                         $this->reduceCallbacks[$rule]($stackPos);
                     } catch (Error $e) {
@@ -250,9 +255,9 @@ abstract class ParserAbstract
                                     return null;
                                 }
                                 $state = $stateStack[--$stackPos];
-                                //$this->tracePop($state);
+                                if($this->trace) $this->tracePop($state);
                             }
-                            //$this->traceShift($this->errorSymbol);
+                            if($this->trace) $this->traceShift($this->errorSymbol);
                             ++$stackPos;
                             $stateStack[$stackPos] = $state = $action;
                             // We treat the error symbol as being empty, so we reset the end attributes
@@ -265,7 +270,7 @@ abstract class ParserAbstract
                                 // Reached EOF without recovering from error
                                 return null;
                             }
-                            //$this->traceDiscard($symbol);
+                            if($this->trace) $this->traceDiscard($symbol);
                             $symbol = self::SYMBOL_NONE;
                             break 2;
                     }
@@ -295,8 +300,11 @@ abstract class ParserAbstract
         $expectedString = '';
         if ($expected = $this->getExpectedTokens($state)) {
             $expectedString = ', expecting ' . implode(' or ', $expected);
+        } else { 
+            $expectedString = "(wasn't expecting any particular)";
         }
-        return 'Syntax error, unexpected ' . $this->symbolToName[$symbol] . '(' . $tokenValue . ')' . $expectedString;
+        
+        return 'Syntax error, unexpected "' . $this->symbolToName[$symbol] . '" (token value "' . $tokenValue . '")' . $expectedString;
     }
     /**
      * Get limited number of expected tokens in given state.

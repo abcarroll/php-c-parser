@@ -10,8 +10,10 @@ class CParser
     private Context $context;
     private Parser $parser;
     private array $headerSearchPaths = [];
+    
+    private $trace = false;
 
-    public function __construct() {
+    public function __construct(bool $trace) {
         $this->parser = new Parser(new Lexer);
     }
 
@@ -19,6 +21,9 @@ class CParser
         // Create the preprocessor every time, since it shouldn't ever share state
         $this->context = $context ?? new Context($this->headerSearchPaths);
         $preprocessor = new PreProcessor($this->context);
+        
+        
+        
         $tokens = $preprocessor->process($filename);
         return $this->parser->parse($tokens, $this->context);
     }
